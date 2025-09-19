@@ -41,6 +41,10 @@ type Client struct {
 	diagnostics   map[protocol.DocumentUri][]protocol.Diagnostic
 	diagnosticsMu sync.RWMutex
 
+	// Diagnostic waiting infrastructure
+	diagnosticWaiters   map[protocol.DocumentUri][]chan struct{}
+	diagnosticWaitersMu sync.RWMutex
+
 	// Files are currently opened by the LSP
 	openFiles   map[string]*OpenFileInfo
 	openFilesMu sync.RWMutex
@@ -75,6 +79,7 @@ func NewClient(command string, args ...string) (*Client, error) {
 		notificationHandlers:  make(map[string]NotificationHandler),
 		serverRequestHandlers: make(map[string]ServerRequestHandler),
 		diagnostics:           make(map[protocol.DocumentUri][]protocol.Diagnostic),
+		diagnosticWaiters:     make(map[protocol.DocumentUri][]chan struct{}),
 		openFiles:             make(map[string]*OpenFileInfo),
 	}
 
@@ -424,4 +429,77 @@ func (c *Client) GetFileDiagnostics(uri protocol.DocumentUri) []protocol.Diagnos
 	defer c.diagnosticsMu.RUnlock()
 
 	return c.diagnostics[uri]
+}
+
+// WaitForDiagnostics waits for diagnostic notifications for the specified URI with a timeout
+func (c *Client) WaitForDiagnostics(ctx context.Context, uri protocol.DocumentUri, timeout time.Duration) error {
+	// Create a channel to wait for diagnostics
+	ch := c.registerDiagnosticWaiter(uri)
+	defer c.unregisterDiagnosticWaiter(uri, ch)
+
+	// Create timeout context
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	select {
+	case <-ch:
+		// Diagnostics received
+		return nil
+	case <-timeoutCtx.Done():
+		// Timeout or context cancelled
+		if timeoutCtx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("timeout waiting for diagnostics after %v", timeout)
+		}
+		return timeoutCtx.Err()
+	}
+}
+
+// registerDiagnosticWaiter registers a channel to be notified when diagnostics arrive for the given URI
+func (c *Client) registerDiagnosticWaiter(uri protocol.DocumentUri) chan struct{} {
+	ch := make(chan struct{}, 1)
+	
+	c.diagnosticWaitersMu.Lock()
+	defer c.diagnosticWaitersMu.Unlock()
+	
+	c.diagnosticWaiters[uri] = append(c.diagnosticWaiters[uri], ch)
+	return ch
+}
+
+// unregisterDiagnosticWaiter removes a channel from the waiters list
+func (c *Client) unregisterDiagnosticWaiter(uri protocol.DocumentUri, ch chan struct{}) {
+	c.diagnosticWaitersMu.Lock()
+	defer c.diagnosticWaitersMu.Unlock()
+	
+	waiters := c.diagnosticWaiters[uri]
+	for i, waiter := range waiters {
+		if waiter == ch {
+			// Remove this waiter from the slice
+			c.diagnosticWaiters[uri] = append(waiters[:i], waiters[i+1:]...)
+			break
+		}
+	}
+	
+	// Clean up empty slice
+	if len(c.diagnosticWaiters[uri]) == 0 {
+		delete(c.diagnosticWaiters, uri)
+	}
+}
+
+// notifyDiagnosticWaiters signals all waiting channels for the given URI
+func (c *Client) notifyDiagnosticWaiters(uri protocol.DocumentUri) {
+	c.diagnosticWaitersMu.Lock()
+	defer c.diagnosticWaitersMu.Unlock()
+	
+	waiters := c.diagnosticWaiters[uri]
+	for _, ch := range waiters {
+		select {
+		case ch <- struct{}{}:
+			// Signal sent
+		default:
+			// Channel already has a signal, skip
+		}
+	}
+	
+	// Clear all waiters for this URI since we've notified them
+	delete(c.diagnosticWaiters, uri)
 }

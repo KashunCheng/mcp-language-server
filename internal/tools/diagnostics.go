@@ -21,14 +21,18 @@ func GetDiagnosticsForFile(ctx context.Context, client *lsp.Client, filePath str
 		}
 	}
 
+	// Get diagnostic timeout from environment variable
+	diagnosticTimeout := 10 * time.Second // Default timeout
+	if envTimeout := os.Getenv("LSP_DIAGNOSTIC_TIMEOUT"); envTimeout != "" {
+		if val, err := strconv.Atoi(envTimeout); err == nil && val > 0 {
+			diagnosticTimeout = time.Duration(val) * time.Second
+		}
+	}
+
 	err := client.OpenFile(ctx, filePath)
 	if err != nil {
 		return "", fmt.Errorf("could not open file: %v", err)
 	}
-
-	// Wait for diagnostics
-	// TODO: wait for notification
-	time.Sleep(time.Second * 3)
 
 	// Convert the file path to URI format
 	uri := protocol.DocumentUri("file://" + filePath)
@@ -40,6 +44,13 @@ func GetDiagnosticsForFile(ctx context.Context, client *lsp.Client, filePath str
 	_, err = client.Diagnostic(ctx, diagParams)
 	if err != nil {
 		toolsLogger.Error("Failed to get diagnostics: %v", err)
+	}
+
+	// Wait for diagnostic notifications with timeout
+	err = client.WaitForDiagnostics(ctx, uri, diagnosticTimeout)
+	if err != nil {
+		toolsLogger.Warn("Timeout or error waiting for diagnostics: %v, proceeding with cached diagnostics", err)
+		// Continue with cached diagnostics rather than failing
 	}
 
 	// Get diagnostics from the cache
