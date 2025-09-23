@@ -11,89 +11,89 @@ import (
 func (s *mcpServer) registerTools() error {
 	coreLogger.Debug("Registering MCP tools")
 
-	applyTextEditTool := mcp.NewTool("edit_file",
-		mcp.WithDescription("Apply multiple text edits to a file."),
-		mcp.WithArray("edits",
-			mcp.Required(),
-			mcp.Description("List of edits to apply"),
-			mcp.Items(map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"startLine": map[string]any{
-						"type":        "number",
-						"description": "Start line to replace, inclusive, one-indexed",
-					},
-					"endLine": map[string]any{
-						"type":        "number",
-						"description": "End line to replace, inclusive, one-indexed",
-					},
-					"newText": map[string]any{
-						"type":        "string",
-						"description": "Replacement text. Replace with the new text. Leave blank to remove lines.",
-					},
-				},
-				"required": []string{"startLine", "endLine"},
-			}),
-		),
-		mcp.WithString("filePath",
-			mcp.Required(),
-			mcp.Description("Path to the file to edit"),
-		),
-	)
-
-	s.mcpServer.AddTool(applyTextEditTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		// Extract arguments
-		filePath, err := request.RequireString("filePath")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		// Extract edits array
-		editsArg, ok := request.GetArguments()["edits"]
-		if !ok {
-			return mcp.NewToolResultError("edits is required"), nil
-		}
-
-		// Type assert and convert the edits
-		editsArray, ok := editsArg.([]any)
-		if !ok {
-			return mcp.NewToolResultError("edits must be an array"), nil
-		}
-
-		var edits []tools.TextEdit
-		for _, editItem := range editsArray {
-			editMap, ok := editItem.(map[string]any)
-			if !ok {
-				return mcp.NewToolResultError("each edit must be an object"), nil
-			}
-
-			startLine, ok := editMap["startLine"].(float64)
-			if !ok {
-				return mcp.NewToolResultError("startLine must be a number"), nil
-			}
-
-			endLine, ok := editMap["endLine"].(float64)
-			if !ok {
-				return mcp.NewToolResultError("endLine must be a number"), nil
-			}
-
-			newText, _ := editMap["newText"].(string) // newText can be empty
-
-			edits = append(edits, tools.TextEdit{
-				StartLine: int(startLine),
-				EndLine:   int(endLine),
-				NewText:   newText,
-			})
-		}
-
-		coreLogger.Debug("Executing edit_file for file: %s", filePath)
-		response, err := tools.ApplyTextEdits(s.ctx, s.lspClient, filePath, edits)
-		if err != nil {
-			coreLogger.Error("Failed to apply edits: %v", err)
-			return mcp.NewToolResultError(fmt.Sprintf("failed to apply edits: %v", err)), nil
-		}
-		return mcp.NewToolResultText(response), nil
-	})
+	//applyTextEditTool := mcp.NewTool("edit_file",
+	//	mcp.WithDescription("Apply multiple text edits to a file."),
+	//	mcp.WithArray("edits",
+	//		mcp.Required(),
+	//		mcp.Description("List of edits to apply"),
+	//		mcp.Items(map[string]any{
+	//			"type": "object",
+	//			"properties": map[string]any{
+	//				"startLine": map[string]any{
+	//					"type":        "number",
+	//					"description": "Start line to replace, inclusive, one-indexed",
+	//				},
+	//				"endLine": map[string]any{
+	//					"type":        "number",
+	//					"description": "End line to replace, inclusive, one-indexed",
+	//				},
+	//				"newText": map[string]any{
+	//					"type":        "string",
+	//					"description": "Replacement text. Replace with the new text. Leave blank to remove lines.",
+	//				},
+	//			},
+	//			"required": []string{"startLine", "endLine"},
+	//		}),
+	//	),
+	//	mcp.WithString("filePath",
+	//		mcp.Required(),
+	//		mcp.Description("Path to the file to edit"),
+	//	),
+	//)
+	//
+	//s.mcpServer.AddTool(applyTextEditTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	//	// Extract arguments
+	//	filePath, err := request.RequireString("filePath")
+	//	if err != nil {
+	//		return mcp.NewToolResultError(err.Error()), nil
+	//	}
+	//
+	//	// Extract edits array
+	//	editsArg, ok := request.GetArguments()["edits"]
+	//	if !ok {
+	//		return mcp.NewToolResultError("edits is required"), nil
+	//	}
+	//
+	//	// Type assert and convert the edits
+	//	editsArray, ok := editsArg.([]any)
+	//	if !ok {
+	//		return mcp.NewToolResultError("edits must be an array"), nil
+	//	}
+	//
+	//	var edits []tools.TextEdit
+	//	for _, editItem := range editsArray {
+	//		editMap, ok := editItem.(map[string]any)
+	//		if !ok {
+	//			return mcp.NewToolResultError("each edit must be an object"), nil
+	//		}
+	//
+	//		startLine, ok := editMap["startLine"].(float64)
+	//		if !ok {
+	//			return mcp.NewToolResultError("startLine must be a number"), nil
+	//		}
+	//
+	//		endLine, ok := editMap["endLine"].(float64)
+	//		if !ok {
+	//			return mcp.NewToolResultError("endLine must be a number"), nil
+	//		}
+	//
+	//		newText, _ := editMap["newText"].(string) // newText can be empty
+	//
+	//		edits = append(edits, tools.TextEdit{
+	//			StartLine: int(startLine),
+	//			EndLine:   int(endLine),
+	//			NewText:   newText,
+	//		})
+	//	}
+	//
+	//	coreLogger.Debug("Executing edit_file for file: %s", filePath)
+	//	response, err := tools.ApplyTextEdits(s.ctx, s.lspClient, filePath, edits)
+	//	if err != nil {
+	//		coreLogger.Error("Failed to apply edits: %v", err)
+	//		return mcp.NewToolResultError(fmt.Sprintf("failed to apply edits: %v", err)), nil
+	//	}
+	//	return mcp.NewToolResultText(response), nil
+	//})
 
 	readDefinitionTool := mcp.NewTool("definition",
 		mcp.WithDescription("Read the source code definition of a symbol (function, type, constant, etc.) from the codebase. Returns the complete implementation code where the symbol is defined."),
@@ -143,40 +143,40 @@ func (s *mcpServer) registerTools() error {
 		return mcp.NewToolResultText(text), nil
 	})
 
-	getDiagnosticsTool := mcp.NewTool("diagnostics",
-		mcp.WithDescription("Get diagnostic information for a specific file from the language server."),
-		mcp.WithString("filePath",
-			mcp.Required(),
-			mcp.Description("The path to the file to get diagnostics for"),
-		),
-		mcp.WithBoolean("contextLines",
-			mcp.Description("Lines to include around each diagnostic."),
-			mcp.DefaultBool(false),
-		),
-		mcp.WithBoolean("showLineNumbers",
-			mcp.Description("If true, adds line numbers to the output"),
-			mcp.DefaultBool(true),
-		),
-	)
-
-	s.mcpServer.AddTool(getDiagnosticsTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		// Extract arguments
-		filePath, err := request.RequireString("filePath")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		contextLines := request.GetInt("contextLines", 5)
-		showLineNumbers := request.GetBool("showLineNumbers", true)
-
-		coreLogger.Debug("Executing diagnostics for file: %s", filePath)
-		text, err := tools.GetDiagnosticsForFile(s.ctx, s.lspClient, filePath, contextLines, showLineNumbers)
-		if err != nil {
-			coreLogger.Error("Failed to get diagnostics: %v", err)
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get diagnostics: %v", err)), nil
-		}
-		return mcp.NewToolResultText(text), nil
-	})
+	//getDiagnosticsTool := mcp.NewTool("diagnostics",
+	//	mcp.WithDescription("Get diagnostic information for a specific file from the language server."),
+	//	mcp.WithString("filePath",
+	//		mcp.Required(),
+	//		mcp.Description("The path to the file to get diagnostics for"),
+	//	),
+	//	mcp.WithBoolean("contextLines",
+	//		mcp.Description("Lines to include around each diagnostic."),
+	//		mcp.DefaultBool(false),
+	//	),
+	//	mcp.WithBoolean("showLineNumbers",
+	//		mcp.Description("If true, adds line numbers to the output"),
+	//		mcp.DefaultBool(true),
+	//	),
+	//)
+	//
+	//s.mcpServer.AddTool(getDiagnosticsTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	//	// Extract arguments
+	//	filePath, err := request.RequireString("filePath")
+	//	if err != nil {
+	//		return mcp.NewToolResultError(err.Error()), nil
+	//	}
+	//
+	//	contextLines := request.GetInt("contextLines", 5)
+	//	showLineNumbers := request.GetBool("showLineNumbers", true)
+	//
+	//	coreLogger.Debug("Executing diagnostics for file: %s", filePath)
+	//	text, err := tools.GetDiagnosticsForFile(s.ctx, s.lspClient, filePath, contextLines, showLineNumbers)
+	//	if err != nil {
+	//		coreLogger.Error("Failed to get diagnostics: %v", err)
+	//		return mcp.NewToolResultError(fmt.Sprintf("failed to get diagnostics: %v", err)), nil
+	//	}
+	//	return mcp.NewToolResultText(text), nil
+	//})
 
 	// Uncomment to add codelens tools
 	//
@@ -285,56 +285,56 @@ func (s *mcpServer) registerTools() error {
 		return mcp.NewToolResultText(text), nil
 	})
 
-	renameSymbolTool := mcp.NewTool("rename_symbol",
-		mcp.WithDescription("Rename a symbol (variable, function, class, etc.) at the specified position and update all references throughout the codebase."),
-		mcp.WithString("filePath",
-			mcp.Required(),
-			mcp.Description("The path to the file containing the symbol to rename"),
-		),
-		mcp.WithNumber("line",
-			mcp.Required(),
-			mcp.Description("The line number where the symbol is located (1-indexed)"),
-		),
-		mcp.WithNumber("column",
-			mcp.Required(),
-			mcp.Description("The column number where the symbol is located (1-indexed)"),
-		),
-		mcp.WithString("newName",
-			mcp.Required(),
-			mcp.Description("The new name for the symbol"),
-		),
-	)
-
-	s.mcpServer.AddTool(renameSymbolTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		// Extract arguments
-		filePath, err := request.RequireString("filePath")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		newName, err := request.RequireString("newName")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		line, err := request.RequireInt("line")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		column, err := request.RequireInt("column")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		coreLogger.Debug("Executing rename_symbol for file: %s line: %d column: %d newName: %s", filePath, line, column, newName)
-		text, err := tools.RenameSymbol(s.ctx, s.lspClient, filePath, line, column, newName)
-		if err != nil {
-			coreLogger.Error("Failed to rename symbol: %v", err)
-			return mcp.NewToolResultError(fmt.Sprintf("failed to rename symbol: %v", err)), nil
-		}
-		return mcp.NewToolResultText(text), nil
-	})
+	//renameSymbolTool := mcp.NewTool("rename_symbol",
+	//	mcp.WithDescription("Rename a symbol (variable, function, class, etc.) at the specified position and update all references throughout the codebase."),
+	//	mcp.WithString("filePath",
+	//		mcp.Required(),
+	//		mcp.Description("The path to the file containing the symbol to rename"),
+	//	),
+	//	mcp.WithNumber("line",
+	//		mcp.Required(),
+	//		mcp.Description("The line number where the symbol is located (1-indexed)"),
+	//	),
+	//	mcp.WithNumber("column",
+	//		mcp.Required(),
+	//		mcp.Description("The column number where the symbol is located (1-indexed)"),
+	//	),
+	//	mcp.WithString("newName",
+	//		mcp.Required(),
+	//		mcp.Description("The new name for the symbol"),
+	//	),
+	//)
+	//
+	//s.mcpServer.AddTool(renameSymbolTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	//	// Extract arguments
+	//	filePath, err := request.RequireString("filePath")
+	//	if err != nil {
+	//		return mcp.NewToolResultError(err.Error()), nil
+	//	}
+	//
+	//	newName, err := request.RequireString("newName")
+	//	if err != nil {
+	//		return mcp.NewToolResultError(err.Error()), nil
+	//	}
+	//
+	//	line, err := request.RequireInt("line")
+	//	if err != nil {
+	//		return mcp.NewToolResultError(err.Error()), nil
+	//	}
+	//
+	//	column, err := request.RequireInt("column")
+	//	if err != nil {
+	//		return mcp.NewToolResultError(err.Error()), nil
+	//	}
+	//
+	//	coreLogger.Debug("Executing rename_symbol for file: %s line: %d column: %d newName: %s", filePath, line, column, newName)
+	//	text, err := tools.RenameSymbol(s.ctx, s.lspClient, filePath, line, column, newName)
+	//	if err != nil {
+	//		coreLogger.Error("Failed to rename symbol: %v", err)
+	//		return mcp.NewToolResultError(fmt.Sprintf("failed to rename symbol: %v", err)), nil
+	//	}
+	//	return mcp.NewToolResultText(text), nil
+	//})
 
 	callersTool := mcp.NewTool("callers",
 		mcp.WithDescription("Determine which functions call the given symbol. Returns a list of the calling functions and the locations of the call sites."),
