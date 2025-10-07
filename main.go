@@ -23,10 +23,12 @@ import (
 var coreLogger = logging.NewLogger(logging.Core)
 
 type config struct {
-	workspaceDir string
-	lspCommand   string
-	openGlobs    StringArrayFlag
-	lspArgs      []string
+	workspaceDir    string
+	lspCommand      string
+	openGlobs       StringArrayFlag
+	lspArgs         []string
+	instructions    string
+	instructionsFile string
 }
 
 type mcpServer struct {
@@ -57,6 +59,7 @@ func parseConfig() (*config, error) {
 	flag.StringVar(&cfg.workspaceDir, "workspace", "", "Path to workspace directory")
 	flag.StringVar(&cfg.lspCommand, "lsp", "", "LSP command to run (args should be passed after --)")
 	flag.Var(&cfg.openGlobs, "open", "Glob of files to open by default (can specify more than once)")
+	flag.StringVar(&cfg.instructionsFile, "instructions-file", "", "Path to a file containing custom instructions for the MCP server")
 	flag.Parse()
 
 	// Get remaining args after -- as LSP arguments
@@ -84,6 +87,14 @@ func parseConfig() (*config, error) {
 
 	if _, err := exec.LookPath(cfg.lspCommand); err != nil {
 		return nil, fmt.Errorf("LSP command not found: %s", cfg.lspCommand)
+	}
+
+	if cfg.instructionsFile != "" {
+		instructions, err := os.ReadFile(cfg.instructionsFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read instructions file: %v", err)
+		}
+		cfg.instructions = string(instructions)
 	}
 
 	return cfg, nil
@@ -160,11 +171,19 @@ func (s *mcpServer) start() error {
 		return err
 	}
 
+	opts := []server.ServerOption{
+		server.WithLogging(),
+		server.WithRecovery(),
+	}
+
+	if s.config.instructions != "" {
+		opts = append(opts, server.WithInstructions(s.config.instructions))
+	}
+
 	s.mcpServer = server.NewMCPServer(
 		"MCP Language Server",
 		"v0.0.2",
-		server.WithLogging(),
-		server.WithRecovery(),
+		opts...,
 	)
 
 	err := s.registerTools()
